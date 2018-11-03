@@ -39,9 +39,15 @@ parser.add_argument('-d', '--domain', metavar='N', required=True, nargs='+', hel
 parser.add_argument('--hostfile', action='store_true', help='Specify domain name for project')
 args = parser.parse_args()
 
-#TODO: do some string verification checks
-name = args.name[0]   
+name = args.name[0].strip()
 domain = args.domain[0]
+#validate domain name matches common convention
+validate_domain = re.match(r'^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$', domain)
+try:
+    validate_domain.group(0)
+except:
+    print("The domain name {0} is not valid.".format(domain))
+    sys.exit()
 hostfile = args.hostfile
 
 #create the site name; default standard is 00-name.conf
