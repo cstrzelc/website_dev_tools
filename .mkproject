@@ -1,0 +1,8 @@
+[webserver]
+#default directory for vhost configuration files
+vsite_conf_dir=/etc/apache2/sites-available
+vsite_conf_numeric_prefix=00
+vsite_default_docroot=''
+vsite_default_log_dir=''
+[database]
+dbuser=letmein
