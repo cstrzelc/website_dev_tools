@@ -21,10 +21,11 @@ a2ensite = '/usr/sbin/a2ensite'
 
 """ Argument Handling """
 parser = argparse.ArgumentParser(description='Make Noble Technology Project')
-parser.add_argument('-n', '--name', metavar='N', required=True, nargs='+', help='Specify the name of the project')
-parser.add_argument('-d', '--domain', metavar='N', required=True, nargs='+', help='Specify domain name for project')
+parser.add_argument('-n', '--name', metavar='XXX', required=True, nargs='+', help='Specify the name of the project')
+parser.add_argument('-d', '--domain', metavar='XXX', required=True, nargs='+', help='Specify domain name for project')
 parser.add_argument('--hostfile', action='store_true', help='Specify domain name for project')
-parser.add_argument('-c', '--configfile', metavar='N', nargs='+', help='Specify alternate configuration file')
+parser.add_argument('-c', '--configfile', metavar='XXX', nargs='+', help='Specify alternate configuration file')
+parser.add_argument('-r', '--database', action='store_true', help='Enable database creation.')
 args = parser.parse_args()
 
 name = args.name[0].strip()
