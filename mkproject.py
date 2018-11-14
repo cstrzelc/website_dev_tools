@@ -9,6 +9,7 @@
 
 import argparse
 import configparser
+import MySQLdb
 import os
 import platform
 import re
@@ -112,10 +113,11 @@ class mkp_webserver:
 
 
         """ Verification checks"""
+        #TODO this verification check for the site file needs to be a warning
         # Exit if the vhost configuration already exists
-        if os.path.isfile(self.vsite_conf_file_fullpath):
-            print("The file {0} already exists".format(self.vsite_conf_file_fullpath))
-            sys.exit()
+        #if os.path.isfile(self.vsite_conf_file_fullpath):
+        #    print("The file {0} already exists".format(self.vsite_conf_file_fullpath))
+        #    sys.exit()
 
     def set_webserver_tools(self):
         if self.os_verified[0] == "Ubuntu":
@@ -138,12 +140,11 @@ class mkp_webserver:
 
     # enable configuration file
     def enable_vhost(self):
-        if self.os_verified == 'Ubuntu':
+        if self.os_verified[0] == 'Ubuntu':
             try:
                 result = subprocess.run([a2ensite, '-q', self.vsite_conf_filename])
             except:
                 print("Unable to enable the site for the Apache webserver")
-                sys.exit()
 
     # return webserver settings
     def get_webserver_settings(self):
@@ -176,6 +177,21 @@ class mkp_database:
     def __init__(self, config):
 
         self.os_verified = os_verified
+        self.domain = domain
+        self.name = name
+
+        #Pull in configuration from config file
+        try:
+            self.dbuser = config['database'].get('dbpass')
+        except:
+            # vsite_conf_dir is required
+            print("Unable determine database root password.")
+            sys.exit()
+
+        self.db = MySQLdb.connect(host="localhost",  # your host
+                             user="root",  # username
+                             passwd="letmein",  # password
+                             db="mysql")  # name of the database
 
         self.set_database_tools()
 
@@ -184,10 +200,25 @@ class mkp_database:
             # set pkg_mngr
             self.pkg_mngr = 'apt'
             #supported webservers on Ubuntu
-            self.supported_database_servers = [ 'mariadb' ]  # TODO need to add nginx
+            self.supported_database_servers = [ 'mariadb-server' ]  # TODO need to add nginx
 
     def verify_database_server(self):
         pass
+        #Needed to install mariadb-server, python3-mysqldb
+        #Needed to run /usr/bin/mysql_secure_installation after installation
+
+    def create_database(self) :
+        # Create a Cursor object to execute queries.
+        self.cur = self.db.cursor()
+
+        #Create database
+        try:
+            self.cur.execute("CREATE DATABASE " + self.name + ";")
+        except:
+            print("database not created.  Check if database already exists.")
+
+    def close_database(self):
+        self.db.close()
 
 
 
@@ -205,11 +236,12 @@ class mkp_os_actions():
 
     # host file entry
     def enable_in_hostfile(self, domain):
-        domain_pattern = re.compile(r'^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$')
+        domain_pattern = re.compile(r'([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$')
 
         # check for existing entry
         for i, line in enumerate(open('/etc/hosts')):
 
+            # TODO: host file addition needs to be idempotent; re match not working
             for match in re.finditer(domain_pattern, line):
                 print("Found existing entry for {0} in /etc/hosts.".format(domain))
                 return True
@@ -237,6 +269,8 @@ def main():
         os.enable_in_hostfile(domain)
 
     database = mkp_database(config)
+    database.create_database()
+    database.close_database()
 
 
 if __name__ == '__main__':
