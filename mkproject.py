@@ -179,19 +179,37 @@ class mkp_database:
         self.os_verified = os_verified
         self.domain = domain
         self.name = name
+        self.dbtype = "mysql" #TODO: this will be dynamic in the future
+        #use the prefix name if it is populated
+        if config['general']['prefix']:
+            self.prefix_name = config['general']['prefix'] + "_" + name
+        else:
+            self.prefix_name = name
+
+        self.db_project_pass = config['database'].get('db_project_pass')
+
 
         #Pull in configuration from config file
         try:
-            self.dbuser = config['database'].get('dbpass')
+            self.dbpass = config['database'].get('dbpass')
         except:
-            # vsite_conf_dir is required
             print("Unable determine database root password.")
             sys.exit()
+        try:
+            self.dbadmin = config['database'].get('dbadmin')
+        except:
+            print("Unable determine database admin user.")
+            sys.exit()
 
-        self.db = MySQLdb.connect(host="localhost",  # your host
-                             user="root",  # username
-                             passwd="letmein",  # password
-                             db="mysql")  # name of the database
+        self.dbhost_string = "localhost"
+        self.dbadmin_string = self.dbadmin
+        self.dbpass_string = self.dbpass
+
+        try:
+            self.db = MySQLdb.connect(self.dbhost_string, self.dbadmin_string, self.dbpass_string )
+        except:
+            print("Unable to create database connection.")
+            sys.exit()
 
         self.set_database_tools()
 
@@ -207,15 +225,36 @@ class mkp_database:
         #Needed to install mariadb-server, python3-mysqldb
         #Needed to run /usr/bin/mysql_secure_installation after installation
 
+    #TODO: By default the database will be prefix_projectname and same for the user.
+    #These will be made into configuratble options in the future
     def create_database(self) :
         # Create a Cursor object to execute queries.
         self.cur = self.db.cursor()
 
         #Create database
         try:
-            self.cur.execute("CREATE DATABASE " + self.name + ";")
+            self.cur.execute("CREATE DATABASE " + self.prefix_name + ";")
         except:
             print("database not created.  Check if database already exists.")
+
+    def create_user(self):
+        stmt="CREATE USER '" + self.prefix_name + "'@'localhost' IDENTIFIED BY '" + self.db_project_pass + "';"
+        try:
+            self.cur.execute(stmt)
+        except:
+            print("database user not created.  Check if the user already exists.")
+
+    def grant_all_privs_to_project_db(self):
+        stmt="GRANT ALL PRIVILEGES ON " + self.prefix_name + ".* TO '" + self.prefix_name + "'@'localhost';"
+        try:
+            self.cur.execute(stmt)
+        except:
+            print("database permissions not applied. Check your database configuration.")
+
+        try:
+            self.cur.execute("FLUSH PRIVILEGES;")
+        except:
+            print("Failed to flush privileges.")
 
     def close_database(self):
         self.db.close()
@@ -254,8 +293,10 @@ class mkp_os_actions():
 def main():
     config = configparser.ConfigParser()  # create config parser object
     config.read(configfile)  # read in project options
+
     # dbpass=config['webserver']['vsite_conf_dir']
 
+    """ Webserver Operations """
     webserver = mkp_webserver(config)
     webserver.verify_webserver()
     os = mkp_os_actions()
@@ -268,9 +309,15 @@ def main():
     if hostfile:
         os.enable_in_hostfile(domain)
 
+    """ Database Operations """
     database = mkp_database(config)
     database.create_database()
+    database.create_user()
+    database.grant_all_privs_to_project_db()
     database.close_database()
+
+    """ WP CLI Operations """
+
 
 
 if __name__ == '__main__':
