@@ -12,6 +12,7 @@ import configparser
 import MySQLdb
 import os
 import platform
+import pycurl
 import re
 import sys
 import subprocess
@@ -22,17 +23,22 @@ supported_os = [ 'Ubuntu' ]
 
 os_verified = [linux_dist_info[0] for supported in supported_os if supported == linux_dist_info[0]]
 
-""" binary locations """
-# TODO this will go into mkp_webserver()
+""" Global Variables """
+# TODO these will have to move a more manageable location
 a2ensite = '/usr/sbin/a2ensite'
+wpcli_curl_filename = '/tmp/wp-cli.phar'
+wpcli_remote_url = 'https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar'
 
 """ Argument Handling """
 parser = argparse.ArgumentParser(description='Make Noble Technology Project')
 parser.add_argument('-n', '--name', metavar='XXX', required=True, nargs='+', help='Specify the name of the project')
 parser.add_argument('-d', '--domain', metavar='XXX', required=True, nargs='+', help='Specify domain name for project')
-parser.add_argument('--hostfile', action='store_true', help='Specify domain name for project')
+parser.add_argument('--hostfile', action='store_true', help='add project to the hosts file')
+parser.add_argument('--webserver', action='store_true', help='build webserver config file.')
 parser.add_argument('-c', '--configfile', metavar='XXX', nargs='+', help='Specify alternate configuration file')
 parser.add_argument('-r', '--database', action='store_true', help='Enable database creation.')
+parser.add_argument('--install_wpcli', action="store_true", help="Download and install wpcli")
+parser.add_argument('--wpcli', action='store_true', help='initiate wpcli configuration')
 args = parser.parse_args()
 
 name = args.name[0].strip()
@@ -44,7 +50,7 @@ try:
 except:
     print("The domain name {0} is not valid.".format(domain))
     sys.exit()
-hostfile = args.hostfile
+
 # validate configuration file;default is /root/.mkproject
 try:
     configfile = args.configfile[0]
@@ -57,6 +63,13 @@ except:
         print("Configuration not specified and /root/.mkproject configuration does not exist. Exiting...")
         sys.exit()
 
+install_wpcli = args.install_wpcli
+enable_hostfile = args.hostfile
+enable_webserver = args.webserver
+enable_wpcli = args.wpcli
+enable_database = args.database
+
+
 """ End Argument Handling """
 
 """ Define Object Classes """
@@ -65,8 +78,6 @@ except:
  - mkp_database()  : detects database and performs various database configurations
  - mkp_os_actions(): performs various actions on the filesystem required to create project
 """
-
-
 class mkp_webserver:
 
     # Constructor
@@ -237,6 +248,7 @@ class mkp_database:
         except:
             print("database not created.  Check if database already exists.")
 
+    #create database user and grant full permissions to this database.
     def create_user(self):
         stmt="CREATE USER '" + self.prefix_name + "'@'localhost' IDENTIFIED BY '" + self.db_project_pass + "';"
         try:
@@ -256,10 +268,76 @@ class mkp_database:
         except:
             print("Failed to flush privileges.")
 
+    def get_db_name(self):
+        return self.prefix_name
+
+    def get_db_credentials(self):
+        return { "dbadmin" : self.dbadmin_string, "dbpass" : self.dbpass_string }
+
     def close_database(self):
         self.db.close()
 
+class mkp_wpcli:
 
+    def __init__(self, config):
+        self.wpcli_curl_filename = wpcli_curl_filename
+        self.wpcli_remote_url = wpcli_remote_url
+
+    def verify_php_install(self):
+        pass
+
+    def verify_wpcli_install(self):
+        pass
+
+    def install_wpcli(self, database):
+        pass
+        #php wp-cli.phar --info
+
+        # As long as the file is opened in binary mode, both Python 2 and Python 3
+        # can write response body to it without decoding.
+        with open(self.wpcli_curl_filename, 'wb') as f:
+            c = pycurl.Curl()
+            c.setopt(c.URL, self.wpcli_remote_url)
+            c.setopt(c.WRITEDATA, f)
+            c.perform()
+            c.close()
+
+        #cp the downloaded file to /usr/local/bin
+        run_args = ['mv', self.wpcli_curl_filename, '/usr/local/bin/wp' ]
+        try:
+            p = subprocess.Popen(run_args)
+            p.wait()
+        except:
+            print("Unable to cp wpcli command to /usr/local/bin")
+        run_args = ['chmod', '0755', '/usr/local/bin/wp']
+        try:
+            p = subprocess.Popen(run_args)
+            p.wait()
+        except:
+            print("Unable to chmod on /usr/local/bin/wp")
+
+        dbname = database.get_db_name()
+        dbcredentials = database.get_db_credentials()
+        dbadmin = dbcredentials.get('dbadmin')
+        dbpass = dbcredentials.get('dbpass')
+
+        run_args = ['wp', 'core', 'download', '--path=/home/cstrzelc/test/test2', '--allow-root']
+        try:
+            p = subprocess.Popen(run_args)
+            p.wait()
+        except:
+            print("Unable to download/install Wordpress with wpcli.")
+        #wp config create --dbname=testing --dbuser=wp --dbpass=securepswd --locale=ro_RO
+        run_args = [ 'wp', 'config', 'create', '--dbname='+dbname, '--dbuser='+dbadmin, '--dbpass='+dbpass, '--allow-root', '--path=/home/cstrzelc/test/test2']
+        try:
+            p = subprocess.Popen(run_args)
+            p.wait()
+        except:
+            print("Unable to create wp_config file with wpcli.")
+
+    def info_wpcli(self):
+        pass
+        #wp --info
 
 class mkp_os_actions():
 
@@ -294,30 +372,34 @@ def main():
     config = configparser.ConfigParser()  # create config parser object
     config.read(configfile)  # read in project options
 
-    # dbpass=config['webserver']['vsite_conf_dir']
+    os = mkp_os_actions()
+    webserver = mkp_webserver(config)
+    database = mkp_database(config)
+    wpcli = mkp_wpcli(config)
 
     """ Webserver Operations """
-    webserver = mkp_webserver(config)
-    webserver.verify_webserver()
-    os = mkp_os_actions()
+    if enable_webserver:
+        webserver.verify_webserver()
+        webserver.build_vsite_file(name, domain)
+        vsite_settings = webserver.get_webserver_settings()
+        os.create_docroot(vsite_settings['documentroot'])
+        webserver.enable_vhost()
 
-    webserver.build_vsite_file(name, domain)
-
-    vsite_settings = webserver.get_webserver_settings()
-    os.create_docroot(vsite_settings['documentroot'])
-    webserver.enable_vhost()
-    if hostfile:
+    if enable_hostfile:
         os.enable_in_hostfile(domain)
 
     """ Database Operations """
-    database = mkp_database(config)
-    database.create_database()
-    database.create_user()
-    database.grant_all_privs_to_project_db()
-    database.close_database()
+    if enable_database:
+        database.create_database()
+        database.create_user()
+        database.grant_all_privs_to_project_db()
+        database.close_database()
 
     """ WP CLI Operations """
-
+    if install_wpcli:
+        wpcli.install_wpcli(database)
+    if enable_wpcli:
+        pass
 
 
 if __name__ == '__main__':
