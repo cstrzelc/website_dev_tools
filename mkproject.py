@@ -1,11 +1,6 @@
 #!/usr/bin/python3
 #
 # Created on/for Ubuntu 18.04
-#
-# Create webdesign development project
-#     1. create apache vhost
-#     2. TODO: create database (mariadb)
-#     3. TODO: download and install wordpress site instance (with wpcli)
 
 import argparse
 import configparser
@@ -21,11 +16,16 @@ import subprocess
 linux_dist_info = platform.dist()
 supported_os = [ 'Ubuntu' ]
 
+#Verify operating system is supported
 os_verified = [linux_dist_info[0] for supported in supported_os if supported == linux_dist_info[0]]
+if not os_verified:
+    print("The {0} operating system is not supported.".format(linux_dist_info))
+    os_distro = False
+else:
+    os_distro = os_verified[0]
 
 """ Global Variables """
 # TODO these will have to move a more manageable location
-a2ensite = '/usr/sbin/a2ensite'
 wpcli_curl_filename = '/tmp/wp-cli.phar'
 wpcli_remote_url = 'https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar'
 
@@ -83,9 +83,6 @@ if configure_all:
     enable_wpcli = True
     enable_database = True
 
-
-
-
 """ End Argument Handling """
 
 """ Define Object Classes """
@@ -121,7 +118,7 @@ class mkp_webserver:
         self.vsite_default_log_dir = '/var/log'  # default log directory
         self.linux_dist_info = linux_dist_info
         self.supported_os = supported_os
-        self.os_verified = os_verified
+        self.os_distro = os_distro
         self.supported_webservers = []
 
         # settings destined for the webserver configuration file
@@ -147,7 +144,7 @@ class mkp_webserver:
         #    sys.exit()
 
     def set_webserver_tools(self):
-        if self.os_verified[0] == "Ubuntu":
+        if self.os_distro == "Ubuntu":
             # set pkg_mngr
             self.pkg_mngr = 'apt'
             #supported webservers on Ubuntu
@@ -169,9 +166,9 @@ class mkp_webserver:
 
     # enable configuration file
     def enable_vhost(self):
-        if self.os_verified[0] == 'Ubuntu':
+        if self.os_distro == 'Ubuntu':
             try:
-                result = subprocess.run([a2ensite, '-q', self.vsite_conf_filename])
+                result = subprocess.run(['a2ensite', '-q', self.vsite_conf_filename])
             except:
                 print("Unable to enable the site for the Apache webserver")
 
@@ -206,7 +203,7 @@ class mkp_database:
 
     def __init__(self, config):
 
-        self.os_verified = os_verified
+        self.os_distro = os_distro
         self.domain = domain
         self.name = name
         self.dbtype = "mysql" #TODO: this will be dynamic in the future
@@ -245,7 +242,7 @@ class mkp_database:
         self.set_database_tools()
 
     def set_database_tools(self):
-        if self.os_verified[0] == "Ubuntu":
+        if self.os_distro == "Ubuntu":
             # set pkg_mngr
             self.pkg_mngr = 'apt'
             #supported webservers on Ubuntu
@@ -300,8 +297,29 @@ class mkp_database:
 class mkp_wpcli:
 
     def __init__(self, config):
-        self.wpcli_curl_filename = wpcli_curl_filename
-        self.wpcli_remote_url = wpcli_remote_url
+        #Defaults
+        self.wpcli_continue_execution = True
+        self.wpcli_curl_filename = '/tmp/wp-cli.phar'
+        self.wpcli_remote_url = 'https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar'
+        self.wpcli_install_location = '/usr/local/bin/wp'
+        self.wpcli_admin_user = 'mkp'
+        self.wpcli_admin_email = 'mkp@example.com'
+        self.wpcli_admin_pass = 'mkpenter!' #incase these are not defined in the config file
+
+        #get configuration file parameters
+        if config['wpcli'].get('wpcli_curl_filename'):
+            self.wpcli_curl_filename = config['wpcli'].get('wpcli_curl_filename')
+        if config['wpcli'].get(wpcli_remote_url):
+            self.wpcli_remote_url = config['wpcli'].get('wpcli_remote_url')
+        if config['wpcli'].get('wpcli_install_location'):
+            self.wpcli_install_location = config['wpcli'].get('wpcli_install_location')
+        if config['wpcli'].get('wpcli_admin_user'):
+            self.wpcli_admin_user = config['wpcli'].get('wpcli_admin_user')
+        if config['wpcli'].get('wpcli_admin_email'):
+            self.wpcli_admin_email = config['wpcli'].get('wpcli_admin_email')
+        if config['wpcli'].get('wpcli_admin_pass'):
+            self.wpcli_admin_pass = config['wpcli'].get('wpcli_admin_pass')
+
 
     def verify_php_install(self):
         pass
@@ -309,65 +327,76 @@ class mkp_wpcli:
     def verify_wpcli_install(self):
         pass
 
-    def install_wpcli(self, database, webserver):
+    def get_wpcli_info(self):
         pass
-        wp_install_location = '/usr/local/bin/wp'
+        # php wp-cli.phar --info
+
+    def install_wpcli(self, database, webserver):
         document_root = webserver.get_documentroot()
-        #php wp-cli.phar --info
 
         # As long as the file is opened in binary mode, both Python 2 and Python 3
         # can write response body to it without decoding.
-        with open(self.wpcli_curl_filename, 'wb') as f:
-            c = pycurl.Curl()
-            c.setopt(c.URL, self.wpcli_remote_url)
-            c.setopt(c.WRITEDATA, f)
-            c.perform()
-            c.close()
+        try:
+            with open(self.wpcli_curl_filename, 'wb') as f:
+                c = pycurl.Curl()
+                c.setopt(c.URL, self.wpcli_remote_url)
+                c.setopt(c.WRITEDATA, f)
+                c.perform()
+                c.close()
+        except:
+            print("Unable to open file for writing {0}".format(self.wpcli_curl_filename))
+            return False
 
-        #cp the downloaded file to /usr/local/bin
-        run_args = ['mv', self.wpcli_curl_filename, wp_install_location ]
+        #mv the wpcli phar file to perm location
+        run_args = ['mv', self.wpcli_curl_filename, self.wpcli_install_location ]
         try:
             p = subprocess.Popen(run_args)
             p.wait()
         except:
-            print("Unable to cp wpcli command to {0}".format(wp_install_location))
-        run_args = ['chmod', '0755', wp_install_location]
+            print("Unable to cp wpcli command to {0}".format(self.wpcli_install_location))
+            return False
+
+        #fix permissions on wpcli installatino
+        run_args = ['chmod', '0755', self.wpcli_install_location]
         try:
             p = subprocess.Popen(run_args)
             p.wait()
         except:
-            print("Unable to chmod on {0}".format(wp_install_location))
+            print("Unable to chmod on {0}".format(self.wpcli_install_location))
+            return False
 
         dbname = database.get_db_name()
         dbcredentials = database.get_db_credentials()
         dbadmin = dbname
-        dbpass = dbcredentials.get('dbpass')
         db_project_pass = dbcredentials.get('db_project_pass')
 
+        #download latest wordpress
         run_args = ['wp', 'core', 'download', '--path='+document_root, '--allow-root']
         try:
             p = subprocess.Popen(run_args)
             p.wait()
         except:
             print("Unable to download/install Wordpress with wpcli.")
-        #wp config create --dbname=testing --dbuser=wp --dbpass=securepswd --locale=ro_RO
+            return False
+
+        #create configuration file wp-config.php
         run_args = [ 'wp', 'config', 'create', '--dbname='+dbname, '--dbuser='+dbadmin, '--dbpass='+db_project_pass, '--allow-root', '--path='+document_root]
         try:
             p = subprocess.Popen(run_args)
             p.wait()
         except:
             print("Unable to create wp_config file with wpcli.")
+            return False
 
-        run_args = ['wp', 'core', 'install', '--url='+domain, '--title='+dbname, '--admin_user='+dbadmin, '--admin_password='+db_project_pass, '--admin_email=chris@nobletech.net', '--allow-root', '--path='+document_root]
+        #install wordpress
+        run_args = ['wp', 'core', 'install', '--url='+domain, '--title='+dbname, '--admin_user='+self.wpcli_admin_user, '--admin_password='+self.wpcli_admin_pass, '--admin_email='+self.wpcli_admin_email, '--allow-root', '--path='+document_root]
         try:
             p = subprocess.Popen(run_args)
             p.wait()
         except:
             print("Unable to configure project {0} with wpcli.".format(dbname))
+            return False
 
-    def info_wpcli(self):
-        pass
-        #wp --info
 
 
 class mkp_os_actions():
