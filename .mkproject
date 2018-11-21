@@ -1,8 +1,23 @@
+#This is the configuration file for the mkproject script
+
+[general]
+prefix=mkp	#prefix for database and database user which will prefix the --name argument
+
 [webserver]
-#default directory for vhost configuration files
-vsite_conf_dir=/etc/apache2/sites-available
-vsite_conf_numeric_prefix=00
-vsite_default_docroot=''
-vsite_default_log_dir=''
+vsite_conf_dir=/etc/apache2/sites-available	#virtualhost configuration file default (Ubuntu)
+vsite_conf_numeric_prefix=00			#prefix for virtualhost configuration file which will prefix --name argument
+vsite_default_docroot=''			#default document root for all domains
+vsite_default_log_dir=''			#default logging location for all domains
+
 [database]
-dbuser=letmein
+dbadmin=root					#database root username
+dbpass=letmein					#database root password
+db_project_pass=insecure			#database password for project user 
+
+[wpcli]
+wpcli_admin_user=mkp				#Wordpress admin user
+wpcli_admin_email=mkp@example.com		#Wordpress admin default email
+wpcli_admin_pass=changeme!			#Wordpress admin default password
+#wpcli_curl_filename=/tmp/wp-cli.phar		#wpcli temporary download location
+#wpcli_remote_url=https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar	#wpcli remote cURL URL
+#wp_install_location=/usr/local/bin/wp	        #wpcli permanent install location
