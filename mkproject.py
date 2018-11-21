@@ -39,6 +39,8 @@ parser.add_argument('-c', '--configfile', metavar='XXX', nargs='+', help='Specif
 parser.add_argument('-r', '--database', action='store_true', help='Enable database creation.')
 parser.add_argument('--install_wpcli', action="store_true", help="Download and install wpcli")
 parser.add_argument('--wpcli', action='store_true', help='initiate wpcli configuration')
+parser.add_argument('--install_all', action='store_true', help='Install all needed software.')
+parser.add_argument('--configure_all', action='store_true', help='Configure all software')
 args = parser.parse_args()
 
 name = args.name[0].strip()
@@ -68,6 +70,20 @@ enable_hostfile = args.hostfile
 enable_webserver = args.webserver
 enable_wpcli = args.wpcli
 enable_database = args.database
+
+install_all = args.install_all
+configure_all = args.configure_all
+
+if install_all:
+    install_wpcli = True
+
+if configure_all:
+    enable_hostfile = True
+    enable_webserver = True
+    enable_wpcli = True
+    enable_database = True
+
+
 
 
 """ End Argument Handling """
@@ -181,7 +197,8 @@ class mkp_webserver:
         if self.p.returncode != 0:
             print("Supported webserver not found.  Supported webserver should be one of these {0}".format(self.supported_webservers))
             sys.exit()
-
+    def get_documentroot(self):
+        return self.vsite_default_docroot + "/" + name
 
 class mkp_database:
 
@@ -215,6 +232,7 @@ class mkp_database:
         self.dbhost_string = "localhost"
         self.dbadmin_string = self.dbadmin
         self.dbpass_string = self.dbpass
+
 
         try:
             self.db = MySQLdb.connect(self.dbhost_string, self.dbadmin_string, self.dbpass_string )
@@ -272,7 +290,7 @@ class mkp_database:
         return self.prefix_name
 
     def get_db_credentials(self):
-        return { "dbadmin" : self.dbadmin_string, "dbpass" : self.dbpass_string }
+        return { "dbadmin" : self.dbadmin_string, "dbpass" : self.dbpass_string, "db_project_pass" : self.db_project_pass }
 
     def close_database(self):
         self.db.close()
@@ -289,8 +307,10 @@ class mkp_wpcli:
     def verify_wpcli_install(self):
         pass
 
-    def install_wpcli(self, database):
+    def install_wpcli(self, database, webserver):
         pass
+        wp_install_location = '/usr/local/bin/wp'
+        document_root = webserver.get_documentroot()
         #php wp-cli.phar --info
 
         # As long as the file is opened in binary mode, both Python 2 and Python 3
@@ -303,41 +323,50 @@ class mkp_wpcli:
             c.close()
 
         #cp the downloaded file to /usr/local/bin
-        run_args = ['mv', self.wpcli_curl_filename, '/usr/local/bin/wp' ]
+        run_args = ['mv', self.wpcli_curl_filename, wp_install_location ]
         try:
             p = subprocess.Popen(run_args)
             p.wait()
         except:
-            print("Unable to cp wpcli command to /usr/local/bin")
-        run_args = ['chmod', '0755', '/usr/local/bin/wp']
+            print("Unable to cp wpcli command to {0}".format(wp_install_location))
+        run_args = ['chmod', '0755', wp_install_location]
         try:
             p = subprocess.Popen(run_args)
             p.wait()
         except:
-            print("Unable to chmod on /usr/local/bin/wp")
+            print("Unable to chmod on {0}".format(wp_install_location))
 
         dbname = database.get_db_name()
         dbcredentials = database.get_db_credentials()
-        dbadmin = dbcredentials.get('dbadmin')
+        dbadmin = dbname
         dbpass = dbcredentials.get('dbpass')
+        db_project_pass = dbcredentials.get('db_project_pass')
 
-        run_args = ['wp', 'core', 'download', '--path=/home/cstrzelc/test/test2', '--allow-root']
+        run_args = ['wp', 'core', 'download', '--path='+document_root, '--allow-root']
         try:
             p = subprocess.Popen(run_args)
             p.wait()
         except:
             print("Unable to download/install Wordpress with wpcli.")
         #wp config create --dbname=testing --dbuser=wp --dbpass=securepswd --locale=ro_RO
-        run_args = [ 'wp', 'config', 'create', '--dbname='+dbname, '--dbuser='+dbadmin, '--dbpass='+dbpass, '--allow-root', '--path=/home/cstrzelc/test/test2']
+        run_args = [ 'wp', 'config', 'create', '--dbname='+dbname, '--dbuser='+dbadmin, '--dbpass='+db_project_pass, '--allow-root', '--path='+document_root]
         try:
             p = subprocess.Popen(run_args)
             p.wait()
         except:
             print("Unable to create wp_config file with wpcli.")
 
+        run_args = ['wp', 'core', 'install', '--url='+domain, '--title='+dbname, '--admin_user='+dbadmin, '--admin_password='+db_project_pass, '--admin_email=chris@nobletech.net', '--allow-root', '--path='+document_root]
+        try:
+            p = subprocess.Popen(run_args)
+            p.wait()
+        except:
+            print("Unable to configure project {0} with wpcli.".format(dbname))
+
     def info_wpcli(self):
         pass
         #wp --info
+
 
 class mkp_os_actions():
 
@@ -353,18 +382,13 @@ class mkp_os_actions():
 
     # host file entry
     def enable_in_hostfile(self, domain):
-        domain_pattern = re.compile(r'([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$')
 
-        # check for existing entry
-        for i, line in enumerate(open('/etc/hosts')):
-
-            # TODO: host file addition needs to be idempotent; re match not working
-            for match in re.finditer(domain_pattern, line):
-                print("Found existing entry for {0} in /etc/hosts.".format(domain))
-                return True
-
-        with open('/etc/hosts', 'a') as hosts:
-            hosts.write("127.0.0.1 " + domain + "\n")
+        print("Adding {0} Host File Entry".format(domain))
+        if domain not in open('/etc/hosts').read():
+            with open('/etc/hosts', 'a') as hosts:
+                hosts.write("127.0.0.1 " + domain + "\n")
+        else:
+            return True
 
 
 # execute main
@@ -397,7 +421,7 @@ def main():
 
     """ WP CLI Operations """
     if install_wpcli:
-        wpcli.install_wpcli(database)
+        wpcli.install_wpcli(database, webserver)
     if enable_wpcli:
         pass
 
