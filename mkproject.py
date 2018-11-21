@@ -158,8 +158,10 @@ class mkp_webserver:
         self.vsite_settings['documentroot'] = self.vsite_default_docroot + "/" + name
 
         with open(self.vsite_conf_file_fullpath, 'w+') as vsite_avail_file:
-            vsite_avail_file.write("<VirtualHost " + domain + ":80>\n")
+            vsite_avail_file.write("<VirtualHost *:80>\n")
             vsite_avail_file.write("ServerAdmin " + self.vsite_settings['serveradmin'] + "\n")
+            vsite_avail_file.write("ServerName " + domain + "\n")
+            vsite_avail_file.write("ServerAlias www." + domain + "\n")
             vsite_avail_file.write("DocumentRoot " + self.vsite_settings['documentroot'] + "\n")
             vsite_avail_file.write("ErrorLog " + self.vsite_settings['errorlog'] + "\n")
             vsite_avail_file.write("CustomLog " + self.vsite_settings['accesslog'] + " common\n")
