@@ -17,7 +17,7 @@ with open('customers.csv', newline='') as csvfile:
         os.system(command)
 
         # Download customer website source
-        os.sysetm("cd " + customer_www_root + ";git clone git@github-nobletech:cstrzelc/" + customer_alias + ".git .")
+        os.system("cd " + customer_www_root + ";git clone git@github-nobletech:cstrzelc/" + customer_alias + ".git .")
 
         # Apache conf.d configuration for customer
         conffile = "/etc/httpd/conf.d/" + customer_alias + ".conf"
