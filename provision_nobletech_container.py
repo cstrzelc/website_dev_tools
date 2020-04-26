@@ -5,6 +5,7 @@ from crontab import CronTab
 working_directory='/tmp/noble/'
 home="/home/"
 update_customers_script='update_nobletech_customers.py'
+customers_database='/tmp/noble/website_dev_tools/customers.csv'
 
 def install_crontab(cronuser):
     cron = CronTab(user=cronuser)
@@ -14,7 +15,7 @@ def install_crontab(cronuser):
     cron.write()
 
 # Provision customer environment based on customers.csv
-with open('customers.csv', newline='') as csvfile:
+with open(customers_database, newline='') as csvfile:
     customerfile = csv.reader(csvfile, delimiter=',')
     for customer in customerfile:
         customer_alias = customer[0]
