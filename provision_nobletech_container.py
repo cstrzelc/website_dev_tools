@@ -9,7 +9,7 @@ customers_database='/tmp/noble/website_dev_tools/customers.csv'
 
 def install_crontab(cronuser):
     cron = CronTab(user=cronuser)
-    job = cron.new(command=working_directory + update_customers_script)
+    job = cron.new(command="/usr/bin/python3 " + working_directory + update_customers_script)
     job.minute.every(30)
 
     cron.write()
@@ -50,8 +50,8 @@ with open(customers_database, newline='') as csvfile:
             conf.writelines( seq1 )
             conf.writelines( seq2 )
 
-run_git_update="/usr/bin/python3" + working_directory + update_customers_script
-os.system(run_git_update)
+#run_git_update="/usr/bin/python3 " + working_directory + update_customers_script
+#os.system(run_git_update)
 
 #Create crontab for doing regular github pulls
 install_crontab('root')
