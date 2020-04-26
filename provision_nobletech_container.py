@@ -1,7 +1,17 @@
 import csv
 import os
+from crontab import CronTab
 
+working_directory='/tmp/noble/'
 home="/home/"
+update_customers_script='update_nobletech_customers.py'
+
+def install_crontab(cronuser):
+    cron = CronTab(user=cronuser)
+    job = cron.new(command=working_directory + update_customers_script)
+    job.minute.every(30)
+
+    cron.write()
 
 # Provision customer environment based on customers.csv
 with open('customers.csv', newline='') as csvfile:
@@ -39,7 +49,11 @@ with open('customers.csv', newline='') as csvfile:
             conf.writelines( seq1 )
             conf.writelines( seq2 )
 
+run_git_update="/usr/bin/python3" + working_directory + update_customers_script
+os.system(run_git_update)
 
+#Create crontab for doing regular github pulls
+install_crontab('root')
 
 
 
