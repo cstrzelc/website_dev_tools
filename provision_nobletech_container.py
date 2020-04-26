@@ -28,7 +28,10 @@ with open(customers_database, newline='') as csvfile:
         os.system(command)
 
         # Download customer website source
-        os.system("cd " + customer_www_root + ";git clone git@github-nobletech:cstrzelc/" + customer_alias + ".git .")
+        try:
+            os.system("cd " + customer_www_root + ";git clone git@github-nobletech:cstrzelc/" + customer_alias + ".git .")
+        except:
+            os.system("cd " + customer_www_root + ";git pull origin master")
 
         # Apache conf.d configuration for customer
         conffile = "/etc/httpd/conf.d/" + customer_alias + ".conf"
