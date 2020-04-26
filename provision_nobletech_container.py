@@ -1,11 +1,17 @@
 import csv
 import os
+from datetime import datetime
 from crontab import CronTab
 
 working_directory='/tmp/noble/'
+logfile=working_directory + 'provision.log'
 home="/home/"
 update_customers_script='update_nobletech_customers.py'
 customers_database='/tmp/noble/website_dev_tools/customers.csv'
+
+now = datetime.now()
+today = now.strftime("%m/%d/%Y, %H:%M:%S")
+os.system("echo 'Running provision: " + today + " ' >" + logfile)
 
 def install_crontab(cronuser):
     cron = CronTab(user=cronuser)
@@ -22,6 +28,9 @@ with open(customers_database, newline='') as csvfile:
         customer_url = customer[1]
         customer_email = customer[2]
         customer_www_root = home + customer_alias + "/public_html"
+        
+        os.system("echo 'Running " + customer_alias + " ' >>" + logfile)
+        
         command = "mkdir -p  " + customer_www_root
 
         # Create customer directory
@@ -29,9 +38,9 @@ with open(customers_database, newline='') as csvfile:
 
         # Download customer website source
         try:
-            os.system("cd " + customer_www_root + ";git clone git@github-nobletech:cstrzelc/" + customer_alias + ".git .")
+            os.system("cd " + customer_www_root + ";git clone git@github-nobletech:cstrzelc/" + customer_alias + ".git . 2>>" + logfile)
         except:
-            os.system("cd " + customer_www_root + ";git pull origin master")
+            print("Unable to run git clone command.")
 
         # Apache conf.d configuration for customer
         conffile = "/etc/httpd/conf.d/" + customer_alias + ".conf"
