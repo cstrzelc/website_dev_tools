@@ -1,7 +1,11 @@
 import csv
 import os
+import boto3
 from datetime import datetime
 from crontab import CronTab
+
+
+s3 = boto3.resource('s3')
 
 working_directory='/tmp/noble/'
 logfile=working_directory + 'provision.log'
@@ -27,6 +31,7 @@ with open(customers_database, newline='') as csvfile:
         customer_alias = customer[0]
         customer_url = customer[1]
         customer_email = customer[2]
+        customer_home = home + customer_alias + "/"
         customer_www_root = home + customer_alias + "/public_html"
         
         os.system("echo 'Running " + customer_alias + " ' >>" + logfile)
@@ -62,11 +67,15 @@ with open(customers_database, newline='') as csvfile:
             conf.writelines( seq1 )
             conf.writelines( seq2 )
 
+        # Download customer backup file
+        s3.Bucket('nobletech-sharedhosting-nightly-backup').download_file('provision-log', '/tmp/provision-log')
+
 #run_git_update="/usr/bin/python3 " + working_directory + update_customers_script
 #os.system(run_git_update)
 
 #Create crontab for doing regular github pulls
 install_crontab('root')
+
 
 
 
