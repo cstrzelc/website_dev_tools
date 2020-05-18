@@ -37,10 +37,10 @@ def modify_httpconf(httpdconf, hostname):
     reading_httpdconf.close()
 
 # Provision customer environment based on customers.csv
-with open(customers_database, newline='') as csvfile:
-    customerfile = csv.reader(csvfile, delimiter=',')
+with open(customers_database, newline='') as reading_customer_database:
+    customerfile = csv.reader(reading_customer_database, delimiter=',')
     for customer in customerfile:
-        if customer.startswith('#'):
+        if customer[0].startswith('#'):
             continue
         else:
             customer_alias = customer[0]
@@ -65,16 +65,16 @@ with open(customers_database, newline='') as csvfile:
             # Apache conf.d configuration for customer
             conffile = "/etc/httpd/conf.d/" + customer_alias + ".conf"
 
-            seq1 = [ "<VirtualHost *:80>\n", "DocumentRoot " + customer_www_root + "\n", \
+            seq1 = [ "<VirtualHost *:80>\n", "DocumentRoot " + customer_www_root + "\n",
                     "serverAdmin " + customer_email + "\n", "ServerName " + customer_url + "\n",
-                    "ErrorLog /var/log/httpd/" + customer_alias + "-error_log\n", \
-                    "CustomLog /var/log/httpd/" + customer_alias + "-access_log\n", \
+                    "ErrorLog /var/log/httpd/" + customer_alias + "-error_log\n",
+                    "CustomLog /var/log/httpd/" + customer_alias + "-access_log\n",
                     "</VirtualHost>\n\n"
                     ]
 
-            seq2 = [ "<Directory " + customer_www_root + " >\n", "AllowOverride FileInfo AuthConfig Limit Indexes\n", \
-                    "Options MultiViews Indexes SymLinksIfOwnerMatch IncludesNoExec\n", \
-                    "Require method GET POST OPTIONS\n", \
+            seq2 = [ "<Directory " + customer_www_root + " >\n", "AllowOverride FileInfo AuthConfig Limit Indexes\n",
+                    "Options MultiViews Indexes SymLinksIfOwnerMatch IncludesNoExec\n",
+                    "Require method GET POST OPTIONS\n",
                     "</Directory>\n" ]
 
             # write configuration to Apache conf file
