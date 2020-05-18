@@ -29,16 +29,22 @@ def install_crontab(cronuser):
 def modify_httpconf(httpdconf, hostname):
     new_file_w_newline=""
     ServerNameLine="#ServerName www.example.com:80"
-    reading_httpdconf = open(httpdconf, mode='r')
-    for line in reading_httpdconf:
+    read_httpdconf = open(httpdconf, mode='r')
+    for line in read_httpdconf:
         stripped_line = line.strip()
         new_line = stripped_line.replace(ServerNameLine, "ServerName " + hostname)
         new_file_w_newline += new_line + "\n"
     reading_httpdconf.close()
 
+    # write httpd.conf file
+    write_httpdconf = open(httpdconf, "w")
+    write_httpdconf.write(new_file_w_newline)
+    write_httpdconf.close()
+
+
 # Provision customer environment based on customers.csv
-with open(customers_database, newline='') as reading_customer_database:
-    customerfile = csv.reader(reading_customer_database, delimiter=',')
+with open(customers_database, newline='') as read_customer_database:
+    customerfile = csv.reader(read_customer_database, delimiter=',')
     for customer in customerfile:
         if customer[0].startswith('#'):
             continue
