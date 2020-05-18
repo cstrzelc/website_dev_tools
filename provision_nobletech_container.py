@@ -34,7 +34,7 @@ def modify_httpconf(httpdconf, hostname):
         stripped_line = line.strip()
         new_line = stripped_line.replace(ServerNameLine, "ServerName " + hostname)
         new_file_w_newline += new_line + "\n"
-    reading_httpdconf.close()
+    read_httpdconf.close()
 
     # write httpd.conf file
     write_httpdconf = open(httpdconf, "w")
